@@ -1,0 +1,1409 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fill The Blank Challenge</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Montserrat', sans-serif;
+            background: url('background.jpg');
+            min-height: 100vh;
+            color: #1f2937;
+            overflow-x: hidden;
+        }
+        
+        .game-card {
+            background-color: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+        
+        .initial-letter {
+            color: #4f46e5;
+            font-weight: 700;
+        }
+        
+        .letter-card {
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        
+        .letter-card:hover {
+            transform: translateY(-2px);
+        }
+        
+        .letter-card.found {
+            background-color: #d1fae5;
+            border-color: #10b981;
+            transform: scale(1.05);
+        }
+        
+        .timer-bar {
+            transition: width 1s linear;
+            height: 8px;
+        }
+        
+        .confetti {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            opacity: 0;
+            animation: fall 3s ease-out forwards;
+        }
+        
+        @keyframes fall {
+            0% {
+                transform: translateY(-100px) rotate(0deg);
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(100vh) rotate(360deg);
+                opacity: 0;
+            }
+        }
+        
+        .guess-input {
+            transition: all 0.3s ease;
+        }
+        
+        .guess-input.correct {
+            background-color: #d1fae5;
+            border-color: #10b981;
+        }
+        
+        .answer-reveal {
+            transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            transform: translateY(0) scale(1);
+            opacity: 1;
+        }
+        
+        .answer-reveal.hidden-answer {
+            transform: translateY(10px) scale(0.95);
+            opacity: 0;
+        }
+        
+        .blank-highlight {
+            position: relative;
+            display: inline-block;
+            padding: 0 4px;
+        }
+        
+        .blank-highlight::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background-color: #4f46e5;
+            border-radius: 2px;
+        }
+        
+        .pulse-animation {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(79, 70, 229, 0.7);
+            }
+            70% {
+                box-shadow: 0 0 0 10px rgba(79, 70, 229, 0);
+            }
+            100% {
+                box-shadow: 0 0 0 0 rgba(79, 70, 229, 0);
+            }
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.5s ease-in forwards;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .progress-ring {
+            transition: stroke-dashoffset 0.5s ease;
+            transform: rotate(-90deg);
+            transform-origin: 50% 50%;
+        }
+        
+        .screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.5s ease-in-out, opacity 0.5s ease-in-out;
+            padding: 1rem;
+            box-sizing: border-box;
+        }
+        
+        .screen.hidden {
+            transform: translateX(100%);
+            opacity: 0;
+            pointer-events: none;
+        }
+        
+        .settings-panel {
+            position: fixed;
+            top: 0;
+            right: 0;
+            width: 85%;
+            max-width: 300px;
+            height: 100%;
+            background-color: white;
+            box-shadow: -5px 0 15px rgba(0, 0, 0, 0.1);
+            transform: translateX(100%);
+            transition: transform 0.3s ease-in-out;
+            z-index: 1000;
+            overflow-y: auto;
+        }
+        
+        .settings-panel.open {
+            transform: translateX(0);
+        }
+        
+        .settings-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease-in-out;
+            z-index: 999;
+        }
+        
+        .settings-overlay.open {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+        }
+        
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 24px;
+        }
+        
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        
+        input:checked + .toggle-slider {
+            background-color: #4f46e5;
+        }
+        
+        input:checked + .toggle-slider:before {
+            transform: translateX(26px);
+        }
+        
+        .btn {
+            transition: all 0.3s ease;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+        
+        .btn:active {
+            transform: translateY(1px);
+        }
+        
+        .instruction-step {
+            opacity: 0;
+            transform: translateY(20px);
+            animation: fadeInUp 0.5s forwards;
+        }
+        
+        @keyframes fadeInUp {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .footer {
+            background-color: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(5px);
+        }
+        
+        .volume-control {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 6px;
+            background: #e0e7ff;
+            border-radius: 3px;
+            outline: none;
+        }
+        
+        .volume-control::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            background: #4f46e5;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        
+        .volume-control::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            background: #4f46e5;
+            border-radius: 50%;
+            cursor: pointer;
+            border: none;
+        }
+        
+        /* Mobile-specific styles */
+        @media (max-width: 640px) {
+            .game-card {
+                width: 100%;
+                margin: 0;
+                border-radius: 1rem;
+            }
+            
+            .letter-card {
+                aspect-ratio: 1/1;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 0.5rem;
+            }
+            
+            .initial-letter {
+                font-size: 1.25rem;
+            }
+            
+            #sentence-display {
+                font-size: 1.25rem;
+                line-height: 1.6;
+            }
+            
+            .instruction-step {
+                margin-bottom: 1rem;
+            }
+            
+            .instruction-step .flex {
+                align-items: flex-start;
+            }
+            
+            .screen {
+                align-items: flex-start;
+                padding-top: 1rem;
+                overflow-y: auto;
+                height: 100%;
+            }
+            
+            .screen > div {
+                margin-top: 0;
+                margin-bottom: 1rem;
+            }
+            
+            /* Improve touch targets */
+            button, .letter-card {
+                min-height: 44px;
+            }
+            
+            input[type="text"] {
+                font-size: 16px; /* Prevent iOS zoom on focus */
+                min-height: 44px;
+            }
+            
+            /* Fix footer on mobile */
+            .footer {
+                padding: 0.75rem;
+            }
+            
+            /* Better spacing for game elements */
+            .p-6 {
+                padding: 1rem;
+            }
+            
+            .p-8 {
+                padding: 1.5rem;
+            }
+            
+            /* Ensure the settings panel is easily accessible */
+            #close-settings-btn {
+                padding: 0.5rem;
+            }
+            
+            /* Make sure the game status messages are clearly visible */
+            #game-status {
+                margin-bottom: 1rem;
+            }
+            
+            /* Ensure the timer and score are properly sized */
+            .timer-circle {
+                width: 2.5rem;
+                height: 2.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Home Screen -->
+    <div id="home-screen" class="screen">
+        <div class="max-w-4xl w-full game-card rounded-2xl overflow-hidden">
+            <!-- Header -->
+            <div class="bg-gradient-to-r from-indigo-700 to-violet-600 text-white p-6 sm:p-8 relative">
+                <div class="absolute top-0 left-0 w-full h-full opacity-10">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="none" class="w-full h-full">
+                        <path d="M0,0 L100,0 L100,100 L0,100 Z" fill="url(#header-pattern)" />
+                        <defs>
+                            <pattern id="header-pattern" patternUnits="userSpaceOnUse" width="10" height="10">
+                                <circle cx="5" cy="5" r="1" fill="white" />
+                            </pattern>
+                        </defs>
+                    </svg>
+                </div>
+                <div class="relative z-10 text-center">
+                    <h1 class="text-4xl sm:text-6xl font-bold mb-2 sm:mb-3">Fill The Blank</h1>
+                    <p class="text-indigo-100 text-base sm:text-lg">Complete the sentence with the top 7 words said by Americans, polls show!</p>
+                </div>
+            </div>
+            
+            <!-- Content -->
+            <div class="p-4 sm:p-8">
+                <div class="mb-6 sm:mb-8">
+                    <h2 class="text-xl sm:text-2xl font-bold text-indigo-700 mb-4 sm:mb-6 text-center">How to Play</h2>
+                    
+                    <div class="space-y-4 sm:space-y-6">
+                        <div class="instruction-step" style="animation-delay: 0.1s">
+                            <div class="flex items-start">
+                                <div class="bg-indigo-100 rounded-full w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center text-indigo-700 font-bold mr-3 flex-shrink-0">1</div>
+                                <div>
+                                    <h3 class="font-semibold text-base sm:text-lg text-gray-800 mb-1 sm:mb-2">Read the Sentence</h3>
+                                    <p class="text-sm sm:text-base text-gray-600">You'll see a sentence with a blank space that needs to be filled.</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="instruction-step" style="animation-delay: 0.2s">
+                            <div class="flex items-start">
+                                <div class="bg-indigo-100 rounded-full w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center text-indigo-700 font-bold mr-3 flex-shrink-0">2</div>
+                                <div>
+                                    <h3 class="font-semibold text-base sm:text-lg text-gray-800 mb-1 sm:mb-2">Use the Initial Letters</h3>
+                                    <p class="text-sm sm:text-base text-gray-600">Look at the initial letters provided as clues. Each letter represents the first letter of a possible answer.</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="instruction-step" style="animation-delay: 0.3s">
+                            <div class="flex items-start">
+                                <div class="bg-indigo-100 rounded-full w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center text-indigo-700 font-bold mr-3 flex-shrink-0">3</div>
+                                <div>
+                                    <h3 class="font-semibold text-base sm:text-lg text-gray-800 mb-1 sm:mb-2">Type Your Guesses</h3>
+                                    <p class="text-sm sm:text-base text-gray-600">Enter words that could complete the sentence and start with the given letters.</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="instruction-step" style="animation-delay: 0.4s">
+                            <div class="flex items-start">
+                                <div class="bg-indigo-100 rounded-full w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center text-indigo-700 font-bold mr-3 flex-shrink-0">4</div>
+                                <div>
+                                    <h3 class="font-semibold text-base sm:text-lg text-gray-800 mb-1 sm:mb-2">Score Points</h3>
+                                    <p class="text-sm sm:text-base text-gray-600">Each correct answer is worth 10 points. Find all 7 answers before the 60-second timer runs out!</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="instruction-step" style="animation-delay: 0.5s">
+                            <div class="flex items-start">
+                                <div class="bg-indigo-100 rounded-full w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center text-indigo-700 font-bold mr-3 flex-shrink-0">5</div>
+                                <div>
+                                    <h3 class="font-semibold text-base sm:text-lg text-gray-800 mb-1 sm:mb-2">Time Bonus</h3>
+                                    <p class="text-sm sm:text-base text-gray-600">If you find all answers before time runs out, you'll get bonus points equal to the seconds remaining!</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
+                    <button id="start-game-btn" class="btn bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 sm:py-4 px-6 sm:px-8 rounded-xl transition-all shadow-md hover:shadow-lg flex items-center justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 sm:h-6 sm:w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Start Game
+                    </button>
+                    
+                    <button id="open-settings-btn" class="btn bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 sm:py-4 px-6 sm:px-8 rounded-xl transition-all shadow-md hover:shadow-lg flex items-center justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 sm:h-6 sm:w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        Settings
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Footer -->
+            <div class="footer p-3 sm:p-4 text-center border-t border-indigo-100">
+                <a href="https://sites.google.com/view/aaronshi" target="_blank" rel="noopener noreferrer" class="text-indigo-600 hover:text-indigo-800 inline-flex items-center text-sm">
+                    Created by Aaron Shi. <img src="https://alittlemoreenglish.weebly.com/uploads/2/6/6/3/26638990/favicon-32x32_orig.png" alt="Aaron Shi" width="15" height="15" class="ml-1">
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Game Screen -->
+    <div id="game-screen" class="screen hidden">
+        <div class="max-w-4xl w-full game-card rounded-2xl overflow-hidden">
+            <!-- Game Header -->
+            <div class="bg-gradient-to-r from-indigo-700 to-violet-600 text-white p-4 sm:p-6 md:p-8 relative">
+                <div class="absolute top-0 left-0 w-full h-full opacity-10">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="none" class="w-full h-full">
+                        <path d="M0,0 L100,0 L100,100 L0,100 Z" fill="url(#header-pattern-game)" />
+                        <defs>
+                            <pattern id="header-pattern-game" patternUnits="userSpaceOnUse" width="10" height="10">
+                                <circle cx="5" cy="5" r="1" fill="white" />
+                            </pattern>
+                        </defs>
+                    </svg>
+                </div>
+                <div class="relative z-10 flex justify-between items-center">
+                    <h1 class="text-2xl sm:text-3xl md:text-4xl font-bold">Fill The Blank</h1>
+                    <div class="flex gap-2">
+                        <button id="game-settings-btn" class="bg-white bg-opacity-20 hover:bg-opacity-30 p-2 rounded-lg transition-all">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 sm:h-6 sm:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                        </button>
+                        <button id="back-to-home-btn" class="bg-white bg-opacity-20 hover:bg-opacity-30 p-2 rounded-lg transition-all">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 sm:h-6 sm:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Game Container -->
+            <div class="p-4 sm:p-6 md:p-8">
+                <!-- Timer and Score Section -->
+                <div class="flex flex-col sm:flex-row justify-between items-center mb-6 sm:mb-8 gap-3 sm:gap-4">
+                    <!-- Timer -->
+                    <div class="flex items-center gap-3 sm:gap-4 bg-indigo-50 p-2 sm:p-3 rounded-xl w-full sm:w-auto">
+                        <div class="relative w-10 h-10 sm:w-12 sm:h-12">
+                            <svg class="w-10 h-10 sm:w-12 sm:h-12">
+                                <circle cx="20" cy="20" r="18" fill="none" stroke="#e0e7ff" stroke-width="4" class="sm:hidden"></circle>
+                                <circle id="timer-circle-mobile" cx="20" cy="20" r="18" fill="none" stroke="#4f46e5" stroke-width="4" stroke-dasharray="113.1" stroke-dashoffset="0" class="progress-ring sm:hidden"></circle>
+                                
+                                <circle cx="24" cy="24" r="20" fill="none" stroke="#e0e7ff" stroke-width="4" class="hidden sm:block"></circle>
+                                <circle id="timer-circle" cx="24" cy="24" r="20" fill="none" stroke="#4f46e5" stroke-width="4" stroke-dasharray="125.6" stroke-dashoffset="0" class="progress-ring hidden sm:block"></circle>
+                            </svg>
+                            <span id="timer" class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 font-bold text-indigo-700 text-sm sm:text-base">60</span>
+                        </div>
+                        <div class="flex flex-col">
+                            <span class="text-xs sm:text-sm text-indigo-500 font-medium">Time Remaining</span>
+                            <div class="w-full bg-indigo-100 rounded-full h-2 mt-1">
+                                <div id="timer-bar" class="timer-bar bg-indigo-600 rounded-full" style="width: 100%"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Score -->
+                    <div class="flex gap-3 sm:gap-4 w-full sm:w-auto">
+                        <div class="bg-indigo-50 p-2 sm:p-3 rounded-xl flex-1 sm:flex-initial">
+                            <span class="text-xs sm:text-sm text-indigo-500 font-medium block">Score</span>
+                            <span id="score" class="text-xl sm:text-2xl font-bold text-indigo-700">0</span>
+                        </div>
+                        <div class="bg-indigo-50 p-2 sm:p-3 rounded-xl flex-1 sm:flex-initial">
+                            <span class="text-xs sm:text-sm text-indigo-500 font-medium block">Found</span>
+                            <span id="found-count" class="text-xl sm:text-2xl font-bold text-indigo-700">0/7</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Game Status -->
+                <div id="game-status" class="mb-4 sm:mb-6 hidden">
+                    <div id="success-message" class="bg-green-100 text-green-800 p-3 sm:p-4 rounded-xl border border-green-200 hidden fade-in">
+                        <div class="flex items-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 sm:h-6 sm:w-6 mr-2 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <p class="font-bold text-sm sm:text-base">Great job! You found all the answers!</p>
+                        </div>
+                    </div>
+                    <div id="failure-message" class="bg-amber-100 text-amber-800 p-3 sm:p-4 rounded-xl border border-amber-200 hidden fade-in">
+                        <div class="flex items-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 sm:h-6 sm:w-6 mr-2 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <p class="font-bold text-sm sm:text-base">Time's up! Let's see the answers.</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Sentence Display -->
+                <div class="mb-6 sm:mb-8 bg-white p-4 sm:p-6 rounded-xl border-2 border-indigo-100 shadow-sm">
+                    <h2 class="text-xs sm:text-sm uppercase tracking-wider text-indigo-500 font-semibold mb-2">Complete this sentence:</h2>
+                    <p id="sentence-display" class="text-xl sm:text-2xl md:text-3xl text-center font-medium text-gray-800 leading-relaxed">
+                        Loading sentence...
+                    </p>
+                </div>
+                
+                <!-- Initial Letters Display -->
+                <div class="mb-6 sm:mb-8">
+                    <h2 class="text-xs sm:text-sm uppercase tracking-wider text-indigo-500 font-semibold mb-2 sm:mb-3">Initial Letters:</h2>
+                    <div id="initial-letters" class="grid grid-cols-4 sm:grid-cols-4 md:grid-cols-7 gap-2 sm:gap-3">
+                        <!-- Initial letters will be generated here -->
+                    </div>
+                </div>
+                
+                <!-- Input Area -->
+                <div class="mb-6 sm:mb-8">
+                    <div class="flex flex-col sm:flex-row gap-3 sm:gap-4">
+                        <div class="relative flex-1">
+                            <input type="text" id="guess-input" class="w-full p-3 sm:p-4 text-base sm:text-lg border-2 border-indigo-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 pr-10 sm:pr-12" placeholder="Enter your guess..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                            <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 sm:h-6 sm:w-6 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                </svg>
+                            </div>
+                        </div>
+                        <button id="submit-btn" class="btn bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 sm:py-4 px-6 sm:px-8 rounded-xl transition-all shadow-md hover:shadow-lg">
+                            Submit
+                        </button>
+                    </div>
+                    <div id="feedback" class="mt-2 sm:mt-3 text-center font-medium min-h-[24px] text-sm sm:text-base"></div>
+                </div>
+                
+                <!-- Answers Display -->
+                <div class="mb-6 sm:mb-8">
+                    <h2 class="text-xs sm:text-sm uppercase tracking-wider text-indigo-500 font-semibold mb-2 sm:mb-3">Your Answers:</h2>
+                    <div id="answers-container" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3 min-h-[80px] sm:min-h-[100px]">
+                        <div class="border-2 border-dashed border-gray-200 rounded-xl flex items-center justify-center text-gray-400 p-3 sm:p-4 text-center text-sm sm:text-base">
+                            Your answers will appear here
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Controls -->
+                <div class="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
+                    <button id="new-game-btn" class="btn bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-md hover:shadow-lg flex items-center justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 sm:h-5 sm:w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        New Game
+                    </button>
+                    <button id="reveal-btn" class="btn bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-md hover:shadow-lg flex items-center justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 sm:h-5 sm:w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                        Reveal All
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Footer -->
+            <div class="footer p-3 sm:p-4 text-center border-t border-indigo-100">
+                <a href="https://sites.google.com/view/aaronshi" target="_blank" rel="noopener noreferrer" class="text-indigo-600 hover:text-indigo-800 inline-flex items-center text-sm">
+                    Created by Aaron Shi. <img src="https://alittlemoreenglish.weebly.com/uploads/2/6/6/3/26638990/favicon-32x32_orig.png" alt="Aaron Shi" width="15" height="15" class="ml-1">
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Settings Panel -->
+    <div id="settings-overlay" class="settings-overlay"></div>
+    <div id="settings-panel" class="settings-panel">
+        <div class="p-5 sm:p-6">
+            <div class="flex justify-between items-center mb-5 sm:mb-6">
+                <h2 class="text-lg sm:text-xl font-bold text-gray-800">Settings</h2>
+                <button id="close-settings-btn" class="text-gray-500 hover:text-gray-700 p-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="space-y-5 sm:space-y-6">
+                <!-- Sound Effects -->
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h3 class="font-medium text-gray-800">Sound Effects</h3>
+                        <p class="text-xs sm:text-sm text-gray-500">Enable or disable game sounds</p>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="sound-effects-toggle" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                
+                <!-- Background Music -->
+                <div>
+                    <div class="flex justify-between items-center mb-2">
+                        <div>
+                            <h3 class="font-medium text-gray-800">Background Music</h3>
+                            <p class="text-xs sm:text-sm text-gray-500">Enable or disable music</p>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="bg-music-toggle" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div id="music-volume-control" class="mt-3">
+                        <p class="text-xs sm:text-sm text-gray-500 mb-1">Volume</p>
+                        <input type="range" id="music-volume" class="volume-control" min="0" max="1" step="0.1" value="0.5">
+                    </div>
+                </div>
+                
+                <hr class="border-gray-200">
+                
+                <!-- Game Info -->
+                <div>
+                    <h3 class="font-medium text-gray-800 mb-2">About the Game</h3>
+                    <p class="text-xs sm:text-sm text-gray-600">Fill The Blank is a word game where you need to guess words that complete a sentence based on their initial letters. Each correct answer is worth 10 points.</p>
+                </div>
+                
+                <div class="text-center">
+                    <button id="reset-settings-btn" class="btn bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium py-2 px-4 rounded-lg transition-all text-sm sm:text-base">
+                        Reset to Default
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Audio Elements -->
+    <audio id="correct-sound" src="https://alittlemoreenglish.github.io/word-link/correct.mp3" preload="auto"></audio>
+    <audio id="wrong-sound" src="wrong.mp3" preload="auto"></audio>
+    <audio id="background-music" src="https://alittlemoreenglish.github.io/word-link/background.mp3" loop preload="auto"></audio>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Game variables
+            let timeLeft = 60;
+            let timerInterval = null;
+            let score = 0;
+            let currentPuzzle = null;
+            let foundAnswers = [];
+            
+            // Audio settings
+            let soundEffectsEnabled = true;
+            let backgroundMusicEnabled = true;
+            let musicVolume = 0.5;
+            
+            // Check if mobile
+            const isMobile = window.innerWidth < 640;
+            
+            // Game data
+            const puzzles = [
+                {
+                    sentence: "I still have the ____ from my wedding.",
+                    answers: [
+                        { text: "dress", initial: "D" },
+                        { text: "ring", initial: "R" },
+                        { text: "cake", initial: "C" },
+                        { text: "photos", initial: "P" },
+                        { text: "bouquet", initial: "B" },
+                        { text: "invitation", initial: "I" },
+                        { text: "license", initial: "L" }
+                    ]
+                },
+                {
+                    sentence: "The first thing I do in the morning is ____.",
+                    answers: [
+                        { text: "coffee", initial: "C" },
+                        { text: "bathroom", initial: "B" },
+                        { text: "shower", initial: "S" },
+                        { text: "stretch", initial: "S" },
+                        { text: "brush teeth", initial: "B" },
+                        { text: "check phone", initial: "C" },
+                        { text: "eat", initial: "E" }
+                    ]
+                },
+                {
+                    sentence: "When it rains, I always forget my ____.",
+                    answers: [
+                        { text: "umbrella", initial: "U" },
+                        { text: "jacket", initial: "J" },
+                        { text: "boots", initial: "B" },
+                        { text: "hat", initial: "H" },
+                        { text: "raincoat", initial: "R" },
+                        { text: "keys", initial: "K" },
+                        { text: "phone", initial: "P" }
+                    ]
+                },
+                {
+                    sentence: "The worst place to lose your ____ is at the airport.",
+                    answers: [
+                        { text: "passport", initial: "P" },
+                        { text: "luggage", initial: "L" },
+                        { text: "wallet", initial: "W" },
+                        { text: "phone", initial: "P" },
+                        { text: "ticket", initial: "T" },
+                        { text: "id", initial: "I" },
+                        { text: "mind", initial: "M" }
+                    ]
+                },
+                {
+                    sentence: "Before going on vacation, I always check my ____.",
+                    answers: [
+                        { text: "passport", initial: "P" },
+                        { text: "tickets", initial: "T" },
+                        { text: "weather", initial: "W" },
+                        { text: "packing list", initial: "P" },
+                        { text: "reservations", initial: "R" },
+                        { text: "money", initial: "M" },
+                        { text: "schedule", initial: "S" }
+                    ]
+                }
+            ];
+            
+            // DOM elements - Screens
+            const homeScreen = document.getElementById('home-screen');
+            const gameScreen = document.getElementById('game-screen');
+            
+            // DOM elements - Home Screen
+            const startGameBtn = document.getElementById('start-game-btn');
+            const openSettingsBtn = document.getElementById('open-settings-btn');
+            
+            // DOM elements - Game Screen
+            const timerElement = document.getElementById('timer');
+            const timerBarElement = document.getElementById('timer-bar');
+            const timerCircleElement = document.getElementById('timer-circle');
+            const timerCircleMobileElement = document.getElementById('timer-circle-mobile');
+            const sentenceDisplayElement = document.getElementById('sentence-display');
+            const initialLettersElement = document.getElementById('initial-letters');
+            const guessInputElement = document.getElementById('guess-input');
+            const submitButton = document.getElementById('submit-btn');
+            const newGameButton = document.getElementById('new-game-btn');
+            const revealButton = document.getElementById('reveal-btn');
+            const scoreElement = document.getElementById('score');
+            const foundCountElement = document.getElementById('found-count');
+            const answersContainer = document.getElementById('answers-container');
+            const feedbackElement = document.getElementById('feedback');
+            const gameStatusElement = document.getElementById('game-status');
+            const successMessageElement = document.getElementById('success-message');
+            const failureMessageElement = document.getElementById('failure-message');
+            const backToHomeBtn = document.getElementById('back-to-home-btn');
+            const gameSettingsBtn = document.getElementById('game-settings-btn');
+            
+            // DOM elements - Settings Panel
+            const settingsPanel = document.getElementById('settings-panel');
+            const settingsOverlay = document.getElementById('settings-overlay');
+            const closeSettingsBtn = document.getElementById('close-settings-btn');
+            const soundEffectsToggle = document.getElementById('sound-effects-toggle');
+            const bgMusicToggle = document.getElementById('bg-music-toggle');
+            const musicVolumeControl = document.getElementById('music-volume');
+            const resetSettingsBtn = document.getElementById('reset-settings-btn');
+            
+            // DOM elements - Audio
+            const correctSound = document.getElementById('correct-sound');
+            const wrongSound = document.getElementById('wrong-sound');
+            const backgroundMusic = document.getElementById('background-music');
+            
+            // Initialize
+            initApp();
+            
+            // Event listeners - Navigation
+            startGameBtn.addEventListener('click', () => {
+                showGameScreen();
+                startNewGame();
+                playBackgroundMusic();
+            });
+            
+            backToHomeBtn.addEventListener('click', () => {
+                showHomeScreen();
+                clearInterval(timerInterval);
+            });
+            
+            // Event listeners - Game
+            submitButton.addEventListener('click', checkGuess);
+            guessInputElement.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    checkGuess();
+                }
+            });
+            newGameButton.addEventListener('click', startNewGame);
+            revealButton.addEventListener('click', revealAllAnswers);
+            
+            // Event listeners - Settings
+            openSettingsBtn.addEventListener('click', openSettings);
+            gameSettingsBtn.addEventListener('click', openSettings);
+            closeSettingsBtn.addEventListener('click', closeSettings);
+            settingsOverlay.addEventListener('click', closeSettings);
+            
+            soundEffectsToggle.addEventListener('change', () => {
+                soundEffectsEnabled = soundEffectsToggle.checked;
+                saveSettings();
+            });
+            
+            bgMusicToggle.addEventListener('change', () => {
+                backgroundMusicEnabled = bgMusicToggle.checked;
+                if (backgroundMusicEnabled) {
+                    playBackgroundMusic();
+                } else {
+                    pauseBackgroundMusic();
+                }
+                saveSettings();
+            });
+            
+            musicVolumeControl.addEventListener('input', () => {
+                musicVolume = parseFloat(musicVolumeControl.value);
+                backgroundMusic.volume = musicVolume;
+                saveSettings();
+            });
+            
+            resetSettingsBtn.addEventListener('click', resetSettings);
+            
+            // Handle orientation changes and resize events
+            window.addEventListener('resize', handleResize);
+            
+            // Functions - Initialization
+            function initApp() {
+                loadSettings();
+                updateSettingsUI();
+                showHomeScreen();
+                handleResize();
+            }
+            
+            function loadSettings() {
+                const savedSettings = localStorage.getItem('fillTheBlankSettings');
+                if (savedSettings) {
+                    const settings = JSON.parse(savedSettings);
+                    soundEffectsEnabled = settings.soundEffects !== undefined ? settings.soundEffects : true;
+                    backgroundMusicEnabled = settings.backgroundMusic !== undefined ? settings.backgroundMusic : true;
+                    musicVolume = settings.musicVolume !== undefined ? settings.musicVolume : 0.5;
+                }
+            }
+            
+            function saveSettings() {
+                const settings = {
+                    soundEffects: soundEffectsEnabled,
+                    backgroundMusic: backgroundMusicEnabled,
+                    musicVolume: musicVolume
+                };
+                localStorage.setItem('fillTheBlankSettings', JSON.stringify(settings));
+                updateSettingsUI();
+            }
+            
+            function updateSettingsUI() {
+                soundEffectsToggle.checked = soundEffectsEnabled;
+                bgMusicToggle.checked = backgroundMusicEnabled;
+                musicVolumeControl.value = musicVolume;
+                backgroundMusic.volume = musicVolume;
+            }
+            
+            function resetSettings() {
+                soundEffectsEnabled = true;
+                backgroundMusicEnabled = true;
+                musicVolume = 0.5;
+                saveSettings();
+                
+                if (backgroundMusicEnabled) {
+                    playBackgroundMusic();
+                }
+            }
+            
+            // Functions - Navigation
+            function showHomeScreen() {
+                homeScreen.classList.remove('hidden');
+                gameScreen.classList.add('hidden');
+                pauseBackgroundMusic();
+                
+                // Scroll to top for mobile
+                window.scrollTo(0, 0);
+            }
+            
+            function showGameScreen() {
+                homeScreen.classList.add('hidden');
+                gameScreen.classList.remove('hidden');
+                
+                // Scroll to top for mobile
+                window.scrollTo(0, 0);
+            }
+            
+            function openSettings() {
+                settingsPanel.classList.add('open');
+                settingsOverlay.classList.add('open');
+            }
+            
+            function closeSettings() {
+                settingsPanel.classList.remove('open');
+                settingsOverlay.classList.remove('open');
+            }
+            
+            // Functions - Audio
+            function playCorrectSound() {
+                if (soundEffectsEnabled) {
+                    correctSound.currentTime = 0;
+                    correctSound.play().catch(error => {
+                        console.log("Audio play prevented: ", error);
+                    });
+                }
+            }
+            
+            function playWrongSound() {
+                if (soundEffectsEnabled) {
+                    wrongSound.currentTime = 0;
+                    wrongSound.play().catch(error => {
+                        console.log("Audio play prevented: ", error);
+                    });
+                }
+            }
+            
+            function playBackgroundMusic() {
+                if (backgroundMusicEnabled) {
+                    backgroundMusic.volume = musicVolume;
+                    backgroundMusic.play().catch(error => {
+                        console.log("Auto-play prevented: ", error);
+                    });
+                }
+            }
+            
+            function pauseBackgroundMusic() {
+                backgroundMusic.pause();
+                backgroundMusic.currentTime = 0;
+            }
+            
+            // Functions - Game
+            function startNewGame() {
+                // Reset game state
+                clearInterval(timerInterval);
+                timeLeft = 60;
+                foundAnswers = [];
+                
+                // Hide status messages
+                gameStatusElement.classList.add('hidden');
+                successMessageElement.classList.add('hidden');
+                failureMessageElement.classList.add('hidden');
+                
+                // Select a random puzzle
+                currentPuzzle = puzzles[Math.floor(Math.random() * puzzles.length)];
+                
+                // Display the sentence with highlighted blank
+                const sentenceParts = currentPuzzle.sentence.split('____');
+                sentenceDisplayElement.innerHTML = `${sentenceParts[0]}<span class="blank-highlight">____</span>${sentenceParts[1]}`;
+                
+                // Display initial letters
+                displayInitialLetters();
+                
+                // Clear answers container
+                answersContainer.innerHTML = `
+                    <div class="border-2 border-dashed border-gray-200 rounded-xl flex items-center justify-center text-gray-400 p-3 sm:p-4 text-center text-sm sm:text-base">
+                        Your answers will appear here
+                    </div>
+                `;
+                
+                // Clear input and feedback
+                guessInputElement.value = '';
+                guessInputElement.disabled = false;
+                guessInputElement.focus();
+                feedbackElement.textContent = '';
+                feedbackElement.className = "mt-2 sm:mt-3 text-center font-medium min-h-[24px] text-sm sm:text-base";
+                
+                // Enable buttons
+                submitButton.disabled = false;
+                revealButton.disabled = false;
+                
+                // Start the timer
+                startTimer();
+                
+                // Update found count
+                updateFoundCount();
+                
+                // Scroll to top for mobile
+                window.scrollTo(0, 0);
+            }
+            
+            function displayInitialLetters() {
+                initialLettersElement.innerHTML = '';
+                
+                currentPuzzle.answers.forEach((answer, index) => {
+                    const letterCard = document.createElement('div');
+                    letterCard.className = 'letter-card bg-white p-3 sm:p-4 rounded-xl shadow border-2 border-indigo-200 flex flex-col items-center justify-center aspect-square cursor-pointer';
+                    letterCard.innerHTML = `
+                        <span class="initial-letter text-xl sm:text-3xl">${answer.initial}</span>
+                    `;
+                    letterCard.dataset.answer = answer.text.toLowerCase();
+                    
+                    // Add hover effect
+                    letterCard.addEventListener('mouseenter', () => {
+                        if (!letterCard.classList.contains('found')) {
+                            letterCard.classList.add('shadow-md', 'border-indigo-300');
+                        }
+                    });
+                    
+                    letterCard.addEventListener('mouseleave', () => {
+                        if (!letterCard.classList.contains('found')) {
+                            letterCard.classList.remove('shadow-md', 'border-indigo-300');
+                        }
+                    });
+                    
+                    initialLettersElement.appendChild(letterCard);
+                });
+            }
+            
+            function startTimer() {
+                updateTimerDisplay();
+                
+                timerInterval = setInterval(() => {
+                    timeLeft--;
+                    updateTimerDisplay();
+                    
+                    if (timeLeft <= 0) {
+                        clearInterval(timerInterval);
+                        timeUp();
+                    }
+                }, 1000);
+            }
+            
+            function updateTimerDisplay() {
+                timerElement.textContent = timeLeft;
+                const percentage = (timeLeft / 60) * 100;
+                timerBarElement.style.width = `${percentage}%`;
+                
+                // Update circular progress
+                const circumference = isMobile ? 2 * Math.PI * 18 : 2 * Math.PI * 20;
+                const offset = circumference - (timeLeft / 60) * circumference;
+                
+                if (isMobile) {
+                    timerCircleMobileElement.style.strokeDasharray = `${circumference} ${circumference}`;
+                    timerCircleMobileElement.style.strokeDashoffset = offset;
+                } else {
+                    timerCircleElement.style.strokeDasharray = `${circumference} ${circumference}`;
+                    timerCircleElement.style.strokeDashoffset = offset;
+                }
+                
+                // Change color based on time remaining
+                if (timeLeft <= 10) {
+                    timerBarElement.classList.remove('bg-indigo-600', 'bg-yellow-500');
+                    timerBarElement.classList.add('bg-red-500');
+                    if (isMobile) {
+                        timerCircleMobileElement.style.stroke = '#ef4444';
+                    } else {
+                        timerCircleElement.style.stroke = '#ef4444';
+                    }
+                } else if (timeLeft <= 30) {
+                    timerBarElement.classList.remove('bg-indigo-600', 'bg-red-500');
+                    timerBarElement.classList.add('bg-yellow-500');
+                    if (isMobile) {
+                        timerCircleMobileElement.style.stroke = '#f59e0b';
+                    } else {
+                        timerCircleElement.style.stroke = '#f59e0b';
+                    }
+                } else {
+                    if (isMobile) {
+                        timerCircleMobileElement.style.stroke = '#4f46e5';
+                    } else {
+                        timerCircleElement.style.stroke = '#4f46e5';
+                    }
+                }
+            }
+            
+            function checkGuess() {
+                const guess = guessInputElement.value.trim().toLowerCase();
+                
+                if (!guess) {
+                    feedbackElement.textContent = "Please enter a guess!";
+                    feedbackElement.className = "mt-2 sm:mt-3 text-center text-amber-600 font-medium min-h-[24px] text-sm sm:text-base";
+                    return;
+                }
+                
+                // Check if the guess is correct and not already found
+                const matchingAnswer = currentPuzzle.answers.find(answer => 
+                    answer.text.toLowerCase() === guess && !foundAnswers.includes(guess)
+                );
+                
+                if (matchingAnswer) {
+                    // Play correct sound
+                    playCorrectSound();
+                    
+                    // Add to found answers
+                    foundAnswers.push(guess);
+                    
+                    // Update score
+                    score += 10; // Each answer is worth 10 points
+                    updateScore();
+                    
+                    // Add answer to the display
+                    addAnswerToDisplay(matchingAnswer);
+                    
+                    // Highlight the initial letter card
+                    highlightInitialLetter(guess);
+                    
+                    // Show success feedback
+                    feedbackElement.innerHTML = `<span class="text-emerald-600">Great! "${matchingAnswer.text}" is correct!</span>`;
+                    feedbackElement.className = "mt-2 sm:mt-3 text-center font-medium min-h-[24px] text-sm sm:text-base";
+                    
+                    // Flash the input with green
+                    guessInputElement.classList.add('correct');
+                    setTimeout(() => {
+                        guessInputElement.classList.remove('correct');
+                    }, 1000);
+                    
+                    // Update found count
+                    updateFoundCount();
+                    
+                    // Check if all answers found
+                    if (foundAnswers.length === currentPuzzle.answers.length) {
+                        gameWon();
+                    }
+                } else if (foundAnswers.includes(guess)) {
+                    feedbackElement.innerHTML = `<span class="text-amber-600">You already found that answer!</span>`;
+                    feedbackElement.className = "mt-2 sm:mt-3 text-center font-medium min-h-[24px] text-sm sm:text-base";
+                    playWrongSound();
+                } else {
+                    feedbackElement.innerHTML = `<span class="text-rose-600">Try again!</span>`;
+                    feedbackElement.className = "mt-2 sm:mt-3 text-center font-medium min-h-[24px] text-sm sm:text-base";
+                    playWrongSound();
+                }
+                
+                // Clear input
+                guessInputElement.value = '';
+                guessInputElement.focus();
+            }
+            
+            function addAnswerToDisplay(answer) {
+                // Remove placeholder if it exists
+                const placeholder = answersContainer.querySelector('.border-dashed');
+                if (placeholder) {
+                    placeholder.remove();
+                }
+                
+                const answerCard = document.createElement('div');
+                answerCard.className = 'bg-green-100 border-2 border-green-300 p-2 sm:p-3 rounded-xl flex items-center justify-between answer-reveal hidden-answer';
+                answerCard.innerHTML = `
+                    <div class="flex items-center">
+                        <span class="bg-green-500 text-white font-bold rounded-full w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center mr-2 text-xs sm:text-sm">${answer.initial}</span>
+                        <span class="font-medium text-green-800 text-sm sm:text-base">${answer.text}</span>
+                    </div>
+                    <span class="bg-green-500 text-white font-bold rounded-full w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center text-xs sm:text-sm">+10</span>
+                `;
+                
+                answersContainer.appendChild(answerCard);
+                
+                // Animate the reveal
+                setTimeout(() => {
+                    answerCard.classList.remove('hidden-answer');
+                }, 50);
+            }
+            
+            function highlightInitialLetter(answer) {
+                const letterCard = document.querySelector(`#initial-letters div[data-answer="${answer}"]`);
+                if (letterCard) {
+                    letterCard.classList.add('found', 'bg-green-100', 'border-green-500');
+                    letterCard.classList.add('pulse-animation');
+                    
+                    // Remove pulse animation after a while
+                    setTimeout(() => {
+                        letterCard.classList.remove('pulse-animation');
+                    }, 2000);
+                }
+            }
+            
+            function revealAllAnswers() {
+                clearInterval(timerInterval);
+                
+                // Reveal all answers that haven't been found
+                currentPuzzle.answers.forEach((answer, index) => {
+                    const answerLower = answer.text.toLowerCase();
+                    if (!foundAnswers.includes(answerLower)) {
+                        // Remove placeholder if it exists and it's the first reveal
+                        if (index === 0) {
+                            const placeholder = answersContainer.querySelector('.border-dashed');
+                            if (placeholder) {
+                                placeholder.remove();
+                            }
+                        }
+                        
+                        // Add answer to display
+                        const answerCard = document.createElement('div');
+                        answerCard.className = 'bg-amber-100 border-2 border-amber-300 p-2 sm:p-3 rounded-xl flex items-center justify-between answer-reveal hidden-answer';
+                        answerCard.innerHTML = `
+                            <div class="flex items-center">
+                                <span class="bg-amber-500 text-white font-bold rounded-full w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center mr-2 text-xs sm:text-sm">${answer.initial}</span>
+                                <span class="font-medium text-amber-800 text-sm sm:text-base">${answer.text}</span>
+                            </div>
+                            <span class="bg-amber-500 text-white font-bold rounded-full w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center text-xs sm:text-sm">0</span>
+                        `;
+                        
+                        answersContainer.appendChild(answerCard);
+                        
+                        // Highlight the initial letter
+                        const letterCard = document.querySelector(`#initial-letters div[data-answer="${answerLower}"]`);
+                        if (letterCard) {
+                            letterCard.classList.add('bg-amber-100', 'border-amber-500');
+                        }
+                        
+                        // Animate the reveal with delay based on index
+                        setTimeout(() => {
+                            answerCard.classList.remove('hidden-answer');
+                        }, 100 * index);
+                    }
+                });
+                
+                // Disable input and buttons
+                guessInputElement.disabled = true;
+                submitButton.disabled = true;
+                revealButton.disabled = true;
+                
+                // Show failure message
+                gameStatusElement.classList.remove('hidden');
+                failureMessageElement.classList.remove('hidden');
+                
+                // Scroll to top to see the message on mobile
+                if (isMobile) {
+                    window.scrollTo({
+                        top: 0,
+                        behavior: 'smooth'
+                    });
+                }
+            }
+            
+            function timeUp() {
+                feedbackElement.innerHTML = `<span class="text-amber-600 font-bold">Time's up! Let's see the answers.</span>`;
+                feedbackElement.className = "mt-2 sm:mt-3 text-center font-medium min-h-[24px] text-sm sm:text-base";
+                
+                revealAllAnswers();
+            }
+            
+            function gameWon() {
+                clearInterval(timerInterval);
+                
+                // Show success message
+                gameStatusElement.classList.remove('hidden');
+                successMessageElement.classList.remove('hidden');
+                
+                // Add bonus points for remaining time
+                const timeBonus = timeLeft;
+                score += timeBonus;
+                
+                // Show bonus message
+                feedbackElement.innerHTML = `<span class="text-emerald-600 font-bold">Amazing! You found all answers and got a time bonus of ${timeBonus} points!</span>`;
+                feedbackElement.className = "mt-2 sm:mt-3 text-center font-medium min-h-[24px] text-sm sm:text-base";
+                
+                // Update score
+                updateScore();
+                
+                // Disable input
+                guessInputElement.disabled = true;
+                submitButton.disabled = true;
+                revealButton.disabled = true;
+                
+                // Create confetti
+                createConfetti();
+                
+                // Scroll to top to see the message on mobile
+                if (isMobile) {
+                    window.scrollTo({
+                        top: 0,
+                        behavior: 'smooth'
+                    });
+                }
+            }
+            
+            function updateScore() {
+                scoreElement.textContent = score;
+            }
+            
+            function updateFoundCount() {
+                foundCountElement.textContent = `${foundAnswers.length}/7`;
+            }
+            
+            function createConfetti() {
+                const colors = ['#4f46e5', '#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#ef4444'];
+                const confettiCount = isMobile ? 50 : 100; // Fewer confetti on mobile
+                
+                for (let i = 0; i < confettiCount; i++) {
+                    const confetti = document.createElement('div');
+                    confetti.className = 'confetti';
+                    confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                    confetti.style.left = `${Math.random() * 100}%`;
+                    confetti.style.width = `${Math.random() * (isMobile ? 8 : 10) + 5}px`;
+                    confetti.style.height = `${Math.random() * (isMobile ? 8 : 10) + 5}px`;
+                    confetti.style.animationDuration = `${Math.random() * 3 + 2}s`;
+                    confetti.style.animationDelay = `${Math.random() * 2}s`;
+                    document.body.appendChild(confetti);
+                    
+                    // Remove confetti after animation
+                    setTimeout(() => {
+                        confetti.remove();
+                    }, 5000);
+                }
+            }
+            
+            function handleResize() {
+                // Update isMobile status
+                const wasMobile = isMobile;
+                const newIsMobile = window.innerWidth < 640;
+                
+                // If mobile status changed, update UI accordingly
+                if (wasMobile !== newIsMobile && timerInterval) {
+                    updateTimerDisplay();
+                }
+                
+                // Adjust height for mobile
+                if (newIsMobile) {
+                    document.querySelectorAll('.screen').forEach(screen => {
+                        screen.style.height = `${window.innerHeight}px`;
+                    });
+                } else {
+                    document.querySelectorAll('.screen').forEach(screen => {
+                        screen.style.height = '100%';
+                    });
+                }
+            }
+            
+            // Fix iOS 100vh issue
+            function setScreenHeight() {
+                const vh = window.innerHeight * 0.01;
+                document.documentElement.style.setProperty('--vh', `${vh}px`);
+            }
+            
+            setScreenHeight();
+            window.addEventListener('resize', setScreenHeight);
+        });
+    </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'934db2a7c0cc8273',t:'MTc0NTQxNDg0Mi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
